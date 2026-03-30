@@ -1,12 +1,19 @@
 import { useState, useMemo } from 'react';
 import { useTickets } from '../hooks/useTickets';
-import { useAuth }    from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { updateTicketStatus } from '../services/ticketService';
 import {
   HiOutlineTicket, HiOutlineLocationMarker,
   HiOutlineCalendar, HiOutlineUser, HiOutlineCheckCircle,
-  HiOutlineClock, HiOutlineTrendingUp, HiOutlineX
+  HiOutlineClock, HiOutlineTrendingUp,
 } from 'react-icons/hi';
+
+/* ── Orange palette (matching Dashboard) ───────────────────────────────── */
+const B = {
+  50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
+  400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
+  800: '#9a3412', 900: '#7c2d12',
+};
 
 const AGENT_TRANSITIONS = {
   'Assigned':    ['In Progress', 'Cancelled'],
@@ -15,17 +22,38 @@ const AGENT_TRANSITIONS = {
   'Completed':   ['Closed'],
 };
 
-function StatCard({ label, value, icon: Icon }) {
+const STATUS_STYLE = {
+  'Assigned':    { bg: B[100], color: B[700], label: 'Assigned' },
+  'Scheduled':   { bg: B[50],  color: B[600], label: 'Scheduled' },
+  'In Progress': { bg: '#fef3c7', color: '#92400e', label: 'In Progress' },
+  'Completed':   { bg: '#dcfce7', color: '#166534', label: 'Completed' },
+  'Closed':      { bg: '#f1f5f9', color: '#475569', label: 'Closed' },
+  'Cancelled':   { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
+};
+
+const SHADES = [
+  { bg: B[50], border: B[200], icon: B[500], val: B[700] },
+  { bg: '#fef3c7', border: '#fde68a', icon: '#d97706', val: '#92400e' },
+  { bg: '#fff7ed', border: '#fed7aa', icon: '#ea580c', val: '#7c2d12' },
+];
+
+function BlueStat({ label, value, icon: Icon, idx }) {
+  const c = SHADES[idx % SHADES.length];
   return (
-    <div className="stat-card-horizontal animate-fade-in bg-white group hover:border-blue-100 transition-all">
-      <div className="flex justify-between items-center w-full">
-        <div className="space-y-1">
-          <p className="label">{label}</p>
-          <p className="value group-hover:text-blue-600 transition-colors">{value}</p>
-        </div>
-        <div className="p-3 rounded-xl bg-slate-50 text-slate-300 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all">
-          <Icon size={20} />
-        </div>
+    <div className="animate-fade-in" style={{
+      background: '#fff', border: `1.5px solid ${c.border}`, borderRadius: 16,
+      padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      boxShadow: `0 2px 8px ${c.border}66`, transition: 'all .2s', cursor: 'default',
+    }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 24px ${c.border}99`; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.background = c.bg; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = `0 2px 8px ${c.border}66`; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#fff'; }}
+    >
+      <div>
+        <p style={{ fontSize: '.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: c.icon, marginBottom: '.5rem', opacity: .8 }}>{label}</p>
+        <p style={{ fontSize: '2.1rem', fontWeight: 900, color: c.val, lineHeight: 1 }}>{value}</p>
+      </div>
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: c.bg, border: `1px solid ${c.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.icon, flexShrink: 0 }}>
+        <Icon size={22} />
       </div>
     </div>
   );
@@ -34,7 +62,7 @@ function StatCard({ label, value, icon: Icon }) {
 export default function AgentTickets() {
   const { user } = useAuth();
   const { tickets, loading } = useTickets();
-  const [busy, setBusy]   = useState(null);
+  const [busy, setBusy] = useState(null);
   const [filter, setFilter] = useState('active');
 
   const myTickets = useMemo(() =>
@@ -44,7 +72,7 @@ export default function AgentTickets() {
 
   const displayed = useMemo(() =>
     filter === 'active'
-      ? myTickets.filter(t => !['Closed', 'Cancelled', 'Completed'].includes(t.status))
+      ? myTickets.filter(t => !['Closed', 'Cancelled'].includes(t.status))
       : myTickets,
     [myTickets, filter]
   );
@@ -55,119 +83,182 @@ export default function AgentTickets() {
     setBusy(null);
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-[400px]"><div className="w-10 h-10 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin" /></div>;
-
-  const done    = myTickets.filter(t => ['Completed', 'Closed'].includes(t.status)).length;
-  const active  = myTickets.filter(t => !['Closed', 'Cancelled', 'Completed'].includes(t.status)).length;
-
-  return (
-    <div className="max-w-5xl mx-auto space-y-10 pb-20">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Active Assignments</h1>
-          <p className="text-slate-500 font-medium">Manage your active service queue and status updates.</p>
-        </div>
-
-        <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-xl p-1 shadow-sm self-start sm:self-center">
-          {[['active', 'Pending'], ['all', 'All Logs']].map(([v, l]) => (
-            <button
-              key={v}
-              onClick={() => setFilter(v)}
-              className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
-                ${filter === v ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/10' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard label="Tasks Pending" value={active} icon={HiOutlineClock} />
-        <StatCard label="Successful" value={done} icon={HiOutlineCheckCircle} />
-        <StatCard label="Life Record" value={myTickets.length} icon={HiOutlineTicket} />
-      </div>
-
-      {/* List */}
-      {displayed.length === 0 ? (
-        <div className="premium-card p-24 flex flex-col items-center justify-center text-center space-y-6 bg-white/50 border-dashed">
-            <HiOutlineCheckCircle size={48} className="text-slate-200" />
-            <p className="font-bold text-slate-400">
-              {filter === 'active' ? "All caught up" : "No record available"}
-            </p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {displayed.map((ticket, i) => {
-            const transitions = AGENT_TRANSITIONS[ticket.status] || [];
-            const isBusy = busy === ticket.id;
-
-            return (
-              <div key={ticket.id} className="premium-card bg-white animate-fade-in group">
-                <div className="flex flex-col lg:flex-row lg:items-start gap-8">
-                  <div className="flex-1 space-y-5">
-                    <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-3">
-                        <span className="bg-slate-50 text-slate-400 px-2 py-1 rounded text-[10px] font-bold font-mono border border-slate-100">
-                          #TF-{ticket.id.slice(0, 8)}
-                        </span>
-                        <span className={`badge-pill ${
-                          ticket.status === 'In Progress' ? 'badge-pending' :
-                          ticket.status === 'Completed' ? 'badge-resolved' : 'badge-open'
-                        }`}>
-                          {ticket.status}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{ticket.serviceType}</span>
-                    </div>
-
-                    <div className="space-y-1">
-                        <h3 className="text-slate-900 font-black text-xl leading-tight tracking-tight">{ticket.description?.split('\n')[0] || 'Service Call'}</h3>
-                        <p className="text-slate-500 text-sm leading-relaxed">{ticket.description}</p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2">
-                        {ticket.location?.address && <Meta icon={<HiOutlineLocationMarker size={14}/>} text={ticket.location.address} color="text-emerald-500" />}
-                        {ticket.scheduledAt && <Meta icon={<HiOutlineCalendar size={14}/>} text={ticket.scheduledAt.toLocaleString()} color="text-blue-500" />}
-                        <Meta icon={<HiOutlineUser size={14}/>} text={`Client ID: ${ticket.userId?.slice(-6)}`} />
-                    </div>
-                  </div>
-
-                  {transitions.length > 0 && (
-                     <div className="lg:w-64 space-y-3 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] text-center mb-1">Update Mission</p>
-                        <div className="flex flex-col gap-2">
-                            {transitions.map(status => (
-                                <button
-                                    key={status}
-                                    onClick={() => handleUpdate(ticket.id, status)}
-                                    disabled={isBusy}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-900 text-[10px] font-black uppercase tracking-widest rounded-xl hover:border-slate-900 transition-all shadow-sm"
-                                >
-                                    {isBusy && busy === ticket.id && <div className="w-3 h-3 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin" />}
-                                    {status}
-                                </button>
-                            ))}
-                        </div>
-                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <div style={{ width: 40, height: 40, border: `4px solid ${B[100]}`, borderTopColor: B[500], borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
     </div>
   );
-}
 
-function Meta({ icon, text, color = 'text-slate-300' }) {
+  const done = myTickets.filter(t => ['Completed', 'Closed'].includes(t.status)).length;
+  const activeCt = myTickets.filter(t => !['Closed', 'Cancelled', 'Completed'].includes(t.status)).length;
+
   return (
-    <div className="flex items-center gap-2 text-[11px] text-slate-500 font-bold tracking-tight">
-      <span className={color}>{icon}</span>
-      <span className="truncate">{text}</span>
+    <div style={{ width: '100%', maxWidth: 1100, margin: '0 auto' }}>
+
+      {/* ── Stats row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1.25rem', marginBottom: '1.75rem', padding: '1rem' }}>
+        <BlueStat label="Tasks Pending" value={activeCt} icon={HiOutlineClock} idx={0} />
+        <BlueStat label="Successful" value={done} icon={HiOutlineCheckCircle} idx={1} />
+        <BlueStat label="Life Record" value={myTickets.length} icon={HiOutlineTicket} idx={2} />
+      </div>
+
+      {/* ── Tickets panel ── */}
+      <div style={{ background: '#fff', border: `1.5px solid ${B[100]}`, borderRadius: 20, overflow: 'hidden', boxShadow: `0 2px 12px ${B[50]}` }}>
+
+        {/* Panel header */}
+        <div style={{ padding: '1.1rem 1.75rem', borderBottom: `1px solid ${B[100]}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: B[50], flexWrap: 'wrap', gap: '.75rem' }}>
+          <div>
+            <h3 style={{ fontSize: '.72rem', fontWeight: 900, color: B[600], textTransform: 'uppercase', letterSpacing: '.14em' }}>
+              My Assignments
+            </h3>
+            <span style={{ fontSize: '.7rem', fontWeight: 600, color: B[400] }}>
+              {displayed.length} {displayed.length === 1 ? 'ticket' : 'tickets'}
+            </span>
+          </div>
+
+          {/* Toggle: Active / All */}
+          <div style={{ display: 'flex', gap: '.35rem', background: '#fff', border: `1.5px solid ${B[200]}`, borderRadius: 10, padding: 3 }}>
+            {[['active', 'Pending'], ['all', 'All Logs']].map(([v, l]) => (
+              <button key={v} onClick={() => setFilter(v)} style={{
+                padding: '5px 14px', borderRadius: 8, fontSize: 10, fontWeight: 900,
+                textTransform: 'uppercase', letterSpacing: '.08em',
+                border: 'none', cursor: 'pointer', transition: 'all .15s',
+                background: filter === v ? B[600] : 'transparent',
+                color: filter === v ? '#fff' : B[400],
+              }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Ticket list */}
+        <div style={{ padding: '1.5rem 1.75rem' }}>
+          {displayed.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+              <HiOutlineCheckCircle size={48} style={{ margin: '0 auto 1rem', display: 'block', color: B[200] }} />
+              <p style={{ fontWeight: 800, color: B[500], fontSize: '.9rem' }}>
+                {filter === 'active' ? 'All caught up — no pending tasks!' : 'No records available'}
+              </p>
+              <p style={{ fontSize: '.8rem', color: B[300], marginTop: '.25rem' }}>Your resolved tickets will appear here</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {displayed.map(ticket => {
+                const transitions = AGENT_TRANSITIONS[ticket.status] || [];
+                const isBusy = busy === ticket.id;
+                const s = STATUS_STYLE[ticket.status] || STATUS_STYLE['Assigned'];
+                const isClosed = ['Closed', 'Cancelled'].includes(ticket.status);
+
+                return (
+                  <div key={ticket.id} className="animate-fade-in" style={{
+                    background: '#fff', border: `1.5px solid ${B[100]}`, borderRadius: 16,
+                    padding: '1.25rem 1.5rem',
+                    boxShadow: `0 2px 8px ${B[50]}`, transition: 'all .2s',
+                    opacity: isClosed ? 0.65 : 1,
+                  }}
+                    onMouseEnter={e => { if (!isClosed) { e.currentTarget.style.boxShadow = `0 8px 24px ${B[200]}`; e.currentTarget.style.borderColor = B[300]; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = B[50]; } }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = `0 2px 8px ${B[50]}`; e.currentTarget.style.borderColor = B[100]; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#fff'; }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', alignItems: 'flex-start' }}>
+
+                      {/* Left: ticket info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {/* ID + status + service type */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '.75rem', flexWrap: 'wrap', gap: '.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                            <span style={{ background: B[100], color: B[700], padding: '2px 8px', borderRadius: 6, fontSize: '9.5px', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '.04em' }}>
+                              #TF-{ticket.id.slice(0, 8).toUpperCase()}
+                            </span>
+                            <span style={{ background: s.bg, color: s.color, padding: '2px 9px', borderRadius: 6, fontSize: '9.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                              {s.label}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 10, color: B[400], fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em' }}>{ticket.serviceType}</span>
+                        </div>
+
+                        {/* Title + description */}
+                        <h3 style={{ fontWeight: 900, color: B[900], fontSize: '1.05rem', marginBottom: '.35rem', lineHeight: 1.3 }}>
+                          {ticket.description?.split('\n')[0] || 'Service Call'}
+                        </h3>
+                        <p style={{ fontSize: '.8rem', color: '#64748b', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: '.75rem' }}>
+                          {ticket.description}
+                        </p>
+
+                        {/* Meta info */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                          {ticket.location?.address && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem' }}>
+                              <HiOutlineLocationMarker size={13} style={{ color: B[400] }} />
+                              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>{ticket.location.address}</span>
+                            </div>
+                          )}
+                          {ticket.scheduledAt && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem' }}>
+                              <HiOutlineCalendar size={13} style={{ color: B[400] }} />
+                              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>{ticket.scheduledAt.toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem' }}>
+                            <HiOutlineUser size={13} style={{ color: B[300] }} />
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>Client: {ticket.userId?.slice(-6)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: action panel */}
+                      {transitions.length > 0 && (
+                        <div style={{
+                          width: 200, flexShrink: 0,
+                          background: B[50], border: `1px solid ${B[100]}`,
+                          borderRadius: 14, padding: '1rem',
+                        }}>
+                          <p style={{ fontSize: '9.5px', fontWeight: 900, color: B[400], textTransform: 'uppercase', letterSpacing: '.14em', textAlign: 'center', marginBottom: '.65rem' }}>
+                            Update Status
+                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+                            {transitions.map(status => {
+                              const isClose = status === 'Closed';
+                              const isComplete = status === 'Completed';
+                              const isCancel = status === 'Cancelled';
+                              let btnBg = '#fff';
+                              let btnColor = B[800];
+                              let btnBorder = B[200];
+
+                              if (isComplete) { btnBg = '#dcfce7'; btnColor = '#166534'; btnBorder = '#bbf7d0'; }
+                              else if (isClose) { btnBg = B[600]; btnColor = '#fff'; btnBorder = B[600]; }
+                              else if (isCancel) { btnBg = '#fee2e2'; btnColor = '#991b1b'; btnBorder = '#fca5a5'; }
+
+                              return (
+                                <button key={status} onClick={() => handleUpdate(ticket.id, status)} disabled={isBusy}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    gap: '.4rem', padding: '.55rem .75rem',
+                                    background: btnBg, border: `1.5px solid ${btnBorder}`,
+                                    color: btnColor, borderRadius: 10,
+                                    fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em',
+                                    cursor: isBusy ? 'not-allowed' : 'pointer', transition: 'all .15s',
+                                  }}
+                                  onMouseEnter={e => { if (!isClose) { e.currentTarget.style.borderColor = B[400]; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                                  onMouseLeave={e => { if (!isClose) { e.currentTarget.style.borderColor = btnBorder; e.currentTarget.style.transform = 'translateY(0)'; } }}
+                                >
+                                  {isBusy && <div style={{ width: 10, height: 10, border: `2px solid ${B[200]}`, borderTopColor: B[600], borderRadius: '50%', animation: 'spin .6s linear infinite' }} />}
+                                  {isClose && <HiOutlineCheckCircle size={13} />}
+                                  {status}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
