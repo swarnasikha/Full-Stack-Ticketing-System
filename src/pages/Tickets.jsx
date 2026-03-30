@@ -122,9 +122,9 @@ function TicketCard({ ticket, onAssign, onReassign, onSchedule, onView, onClose,
         <MetaRow icon={<HiOutlineUser size={12}/>} label="Client" value={ticket.name || '—'} />
         <MetaRow icon={<HiOutlineUser size={12}/>} label="Agent" value={agentName} highlight />
         <MetaRow icon={<HiOutlineTicket size={12}/>} label="Service" value={ticket.serviceType || '—'} />
-        <MetaRow icon={<HiOutlineClock size={12}/>} label="Created" value={ticket.createdAt?.toDate?.().toLocaleDateString() || '—'} />
-        <MetaRow icon={<HiOutlineCalendar size={12}/>} label="Scheduled" value={ticket.scheduledAt?.toDate?.().toLocaleDateString() || '—'} />
-        <MetaRow icon={<HiOutlineClock size={12}/>} label="Updated" value={ticket.updatedAt?.toDate?.().toLocaleDateString() || '—'} />
+        <MetaRow icon={<HiOutlineClock size={12}/>} label="Created" value={ticket.createdAt?.toLocaleDateString() || '—'} />
+        <MetaRow icon={<HiOutlineCalendar size={12}/>} label="Scheduled" value={ticket.scheduledAt?.toLocaleDateString() || '—'} />
+        <MetaRow icon={<HiOutlineClock size={12}/>} label="Updated" value={ticket.updatedAt?.toLocaleDateString() || '—'} />
         <MetaRow icon={<HiOutlineUser size={12}/>} label="Phone" value={ticket.phoneNo || '—'} />
         <MetaRow icon={<HiOutlineUser size={12}/>} label="Email" value={ticket.email || '—'} />
       </div>
@@ -745,9 +745,9 @@ export default function Tickets() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.5rem' }}>
               {[
                 ['Service Request', selectedTicket.serviceType || '—'],
-                ['Entry Date', selectedTicket.createdAt?.toDate?.().toLocaleDateString() || '—'],
+                ['Entry Date',      selectedTicket.createdAt?.toLocaleDateString() || '—'],
                 ['Assigned Rep',    agents.find(a => a.id === selectedTicket.assignedAgentId)?.name || 'Needs Assignment'],
-               ['Dispatch Time', selectedTicket.scheduledAt?.toDate?.().toLocaleString() || 'Not Scheduled'],
+                ['Dispatch Time',   selectedTicket.scheduledAt?.toLocaleString() || 'Not Scheduled'],
               ].map(([k, v]) => (
                 <div key={k}>
                   <p style={{ fontSize: '9.5px', fontWeight: 900, color: B[300], textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.25rem' }}>{k}</p>
