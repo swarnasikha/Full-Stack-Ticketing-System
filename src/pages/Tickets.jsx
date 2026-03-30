@@ -517,6 +517,12 @@ export default function Tickets() {
         </div>
       ) : (
         <div style={{
+          maxHeight: '75vh',
+          overflowY: 'auto',
+          padding: '4px',
+          scrollBehavior: 'smooth',
+        }}>
+        <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
           gap: '1rem',
@@ -531,6 +537,7 @@ export default function Tickets() {
               onClose={id => handleStatusChange(id, 'Closed')}
             />
           ))}
+        </div>
         </div>
       )}
 
