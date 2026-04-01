@@ -1,15 +1,17 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute   from './components/ProtectedRoute';
 import DashboardLayout  from './components/DashboardLayout';
 import AgentLayout      from './components/AgentLayout';
-import Login            from './pages/Login';
-import Dashboard        from './pages/Dashboard';
-import Tickets          from './pages/Tickets';
-import Agents           from './pages/Agents';
-import Feedback         from './pages/Feedback';
-import Notifications    from './pages/Notifications';
-import AgentTickets     from './pages/AgentTickets';
+
+const Login         = lazy(() => import('./pages/Login'));
+const Dashboard     = lazy(() => import('./pages/Dashboard'));
+const Tickets       = lazy(() => import('./pages/Tickets'));
+const Agents        = lazy(() => import('./pages/Agents'));
+const Feedback      = lazy(() => import('./pages/Feedback'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const AgentTickets  = lazy(() => import('./pages/AgentTickets'));
 
 import { SearchProvider } from './context/SearchContext';
 
@@ -26,7 +28,12 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
+        <Suspense fallback={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
+            <div style={{ width: '40px', height: '40px', border: '4px solid #dbeafe', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          </div>
+        }>
+          <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
 
@@ -72,7 +79,8 @@ function App() {
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );

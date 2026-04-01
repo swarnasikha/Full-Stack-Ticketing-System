@@ -20,6 +20,18 @@ const B = {
   800: '#1e40af',
   900: '#1e3a8a',
 };
+// const B = {
+//   50:  '#fff7ed',
+//   100: '#ffedd5',
+//   200: '#fed7aa',
+//   300: '#fdba74',
+//   400: '#fb923c',
+//   500: '#f97316',
+//   600: '#ea580c',
+//   700: '#c2410c',
+//   800: '#9a3412',
+//   900: '#7c2d12'
+// };
 
 /* four distinct blue shades for the 4 stat cards */
 const STAT_SHADES = [
@@ -95,11 +107,22 @@ function StatCard({ label, value, icon: Icon, shadeIdx = 0 }) {
 
 /* status badge colours — all in blue family */
 const STATUS_BADGE = {
-  'Created':     { bg: '#dbeafe', color: '#1d4ed8', label: 'Open' },
-  'Assigned':    { bg: '#e0f2fe', color: '#0369a1', label: 'Assigned' },
+  'PendingReview':     { bg: '#fef9c3', color: '#854d0e', label: 'Pending Review' },
+  'Evaluating':        { bg: '#e0f2fe', color: '#0369a1', label: 'Evaluating' },
+  'Accepted':          { bg: '#dcfce7', color: '#166534', label: 'Accepted' },
+  'Rejected':          { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
+  'Scheduled':         { bg: '#ede9fe', color: '#5b21b6', label: 'Scheduled' },
+  'InProgress':        { bg: '#eef2ff', color: '#4338ca', label: 'In Progress' },
+  'ServiceExecution':  { bg: '#fff7ed', color: '#9a3412', label: 'Execution' },
+  'ResolutionPending': { bg: '#fdf4ff', color: '#7e22ce', label: 'Resolution Pending' },
+  'Resolved':          { bg: '#f0fdf4', color: '#14532d', label: 'Resolved' },
+  // backward compat
+  'Created':     { bg: '#dbeafe', color: '#1d4ed8', label: 'Pending Review' },
+  'Assigned':    { bg: '#e0f2fe', color: '#0369a1', label: 'Accepted' },
   'In Progress': { bg: '#eef2ff', color: '#4338ca', label: 'In Progress' },
-  'Completed':   { bg: '#f0fdf4', color: '#166534', label: 'Completed' },
+  'Completed':   { bg: '#f0fdf4', color: '#166534', label: 'Resolved' },
   'Closed':      { bg: '#f1f5f9', color: '#475569', label: 'Closed' },
+  'Cancelled':   { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
 };
 
 function TicketRow({ ticket }) {
@@ -217,9 +240,9 @@ function TicketRow({ ticket }) {
 
 /* ── Main Page ─────────────────────────────────────────────────────────── */
 export default function Dashboard() {
-  const { tickets, loading: tlod } = useTickets();
   const [localSearch, setLocalSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  const { tickets, loading: tlod, loadMore, hasMore } = useTickets(localSearch.trim().length > 0);
 
   const filteredTickets = tickets.filter(t =>
     t.description?.toLowerCase().includes(localSearch.toLowerCase()) ||
@@ -229,9 +252,9 @@ export default function Dashboard() {
   );
 
   const total    = tickets.length;
-  const open     = tickets.filter(t => t.status === 'Created').length;
-  const pending  = tickets.filter(t => ['Assigned', 'In Progress'].includes(t.status)).length;
-  const resolved = tickets.filter(t => ['Completed', 'Closed'].includes(t.status)).length;
+  const open     = tickets.filter(t => ['Created', 'PendingReview', 'Evaluating'].includes(t.status)).length;
+  const pending  = tickets.filter(t => ['Assigned', 'Accepted', 'Scheduled', 'In Progress', 'InProgress', 'ServiceExecution'].includes(t.status)).length;
+  const resolved = tickets.filter(t => ['Completed', 'Closed', 'Resolved', 'ResolutionPending'].includes(t.status)).length;
 
   if (tlod) {
     return (
@@ -248,20 +271,72 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: '1100px', margin: '0 auto' }}>
+    <div className="ticket-page" style={{ width: '100%', maxWidth: '1100px', margin: '0 auto' }}>
 
-  
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1.25rem',
-        marginBottom: '2.25rem',
-        padding: '1rem',
+      {/* ── Compact Search Bar (matches Tickets page) ── */}
+      <div className="ticket-filter-bar" style={{
+        background: '#fff',
+        border: `1.5px solid ${B[100]}`,
+        borderRadius: '14px',
+        boxShadow: `0 2px 8px ${B[50]}`,
+        marginBottom: '0.85rem',
+        padding: '0.6rem 1rem',
+        display: 'flex', alignItems: 'center', gap: '0.75rem',
+        flexWrap: 'wrap',
       }}>
-        <StatCard label="Total Volume"   value={total}    icon={HiOutlineTicket}           shadeIdx={0} />
-        <StatCard label="Open Requests"  value={open}     icon={HiOutlineExclamationCircle} shadeIdx={1} />
-        <StatCard label="In Progress"    value={pending}  icon={HiOutlineClock}             shadeIdx={2} />
-        <StatCard label="Resolved"       value={resolved} icon={HiOutlineCheckCircle}       shadeIdx={3} />
+        {/* Title + count */}
+        <div style={{ flexShrink: 0 }}>
+          <span style={{ fontSize: '11px', fontWeight: 900, color: B[600], textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+            Live Ticket Feed
+          </span>
+          <span style={{ fontSize: '10px', fontWeight: 600, color: B[400], marginLeft: '0.5rem' }}>
+            {filteredTickets.length}/{tickets.length}
+          </span>
+        </div>
+
+        {/* Search input */}
+        <div style={{
+          flex: 1, minWidth: '180px',
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          background: searchFocused ? '#fff' : B[50],
+          border: `1.5px solid ${searchFocused ? B[400] : B[200]}`,
+          borderRadius: '10px', padding: '0 0.75rem', height: '36px',
+          transition: 'all 0.2s',
+          boxShadow: searchFocused ? `0 0 0 2px ${B[100]}` : 'none',
+        }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 30 30"
+            fill={searchFocused ? B[500] : B[300]} style={{ flexShrink: 0, transition: 'fill 0.2s' }}>
+            <path d="M13 3C7.489 3 3 7.489 3 13s4.489 10 10 10a9.95 9.95 0 0 0 6.322-2.264l5.971 5.971a1 1 0 1 0 1.414-1.414l-5.97-5.97A9.95 9.95 0 0 0 23 13c0-5.511-4.489-10-10-10m0 2c4.43 0 8 3.57 8 8s-3.57 8-8 8-8-3.57-8-8 3.57-8 8-8"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search tickets, IDs, service type or status..."
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '13px', color: B[900], fontWeight: 500 }}
+            value={localSearch}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            onChange={e => setLocalSearch(e.target.value)}
+          />
+          {localSearch && (
+            <button onClick={() => setLocalSearch('')} style={{
+              background: B[100], border: 'none', borderRadius: '50%',
+              width: '18px', height: '18px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: B[600], fontSize: '10px', fontWeight: 700, flexShrink: 0,
+            }}>✕</button>
+          )}
+        </div>
+
+        {/* Live pulse */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+          <div style={{
+            width: '8px', height: '8px', borderRadius: '50%',
+            background: B[500],
+            boxShadow: `0 0 0 3px ${B[200]}`,
+            animation: 'pulse 2s ease-in-out infinite',
+          }} />
+          <span style={{ fontSize: '10px', color: B[400], fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live</span>
+        </div>
       </div>
 
       {/* ── Ticket Feed Container ── */}
@@ -272,114 +347,53 @@ export default function Dashboard() {
         overflow: 'hidden',
         boxShadow: `0 2px 12px ${B[100]}`,
       }}>
-        {/* Section header bar */}
+        {/* Section label row inside container */}
         <div style={{
-          padding: '1.1rem 1.75rem',
+          padding: '0.7rem 1rem',
           borderBottom: `1px solid ${B[100]}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
           background: B[50],
         }}>
-          <div>
-            <h3 style={{
-              fontSize: '0.72rem',
-              fontWeight: 900,
-              color: B[500],
-              textTransform: 'uppercase',
-              letterSpacing: '0.14em',
-            }}>
-              Live Ticket Feed
-            </h3>
-            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: B[400] }}>
-              {filteredTickets.length} {filteredTickets.length === 1 ? 'item' : 'items'} found
-            </span>
-          </div>
-          {/* small live pulse dot */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <div style={{
-              width: '8px', height: '8px', borderRadius: '50%',
-              background: B[500],
-              boxShadow: `0 0 0 3px ${B[200]}`,
-              animation: 'pulse 2s ease-in-out infinite',
-            }} />
-            <span style={{ fontSize: '10px', color: B[400], fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live</span>
-          </div>
+          <span style={{ fontSize: '9px', fontWeight: 900, color: B[400], textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+            {filteredTickets.length} {filteredTickets.length === 1 ? 'result' : 'results'}
+          </span>
         </div>
 
-        {/* ── Full-width Search Bar Row ── */}
-        <div style={{ padding: '1rem 1.75rem', borderBottom: `1px solid ${B[50]}` }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              background: searchFocused ? '#fff' : B[50],
-              border: `1.5px solid ${searchFocused ? B[400] : B[200]}`,
-              borderRadius: '12px',
-              padding: '0 1rem',
-              height: '48px',
-              width: '100%',
-              transition: 'all 0.2s',
-              boxShadow: searchFocused ? `0 0 0 3px ${B[100]}` : 'none',
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 30 30"
-              fill={searchFocused ? B[500] : B[300]} style={{ flexShrink: 0, transition: 'fill 0.2s' }}>
-              <path d="M13 3C7.489 3 3 7.489 3 13s4.489 10 10 10a9.95 9.95 0 0 0 6.322-2.264l5.971 5.971a1 1 0 1 0 1.414-1.414l-5.97-5.97A9.95 9.95 0 0 0 23 13c0-5.511-4.489-10-10-10m0 2c4.43 0 8 3.57 8 8s-3.57 8-8 8-8-3.57-8-8 3.57-8 8-8"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search tickets, IDs, service type or status..."
-              style={{
-                flex: 1,
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                fontSize: '0.875rem',
-                color: B[900],
-                fontWeight: 500,
-              }}
-              value={localSearch}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              onChange={e => setLocalSearch(e.target.value)}
-            />
-            {localSearch && (
-              <button
-                onClick={() => setLocalSearch('')}
-                style={{
-                  background: B[100],
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '20px', height: '20px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: B[600],
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  flexShrink: 0,
-                }}
-              >✕</button>
-            )}
-          </div>
-        </div>
-
-        {/* ── Ticket Grid ── */}
-        <div style={{ padding: '1.5rem 1.75rem' }}>
+        {/* ── Ticket List (horizontal single-column, responsive) ── */}
+        <div className="ticket-list-scroll" style={{
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          padding: '1rem',
+          scrollBehavior: 'smooth',
+        }}>
           {filteredTickets.length > 0 ? (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '1rem',
-            }}>
-              {filteredTickets.map(t => <TicketRow key={t.id} ticket={t} />)}
-            </div>
+            <>
+              <div className="ticket-list" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+              }}>
+                {filteredTickets.map(t => <TicketRow key={t.id} ticket={t} />)}
+              </div>
+              {hasMore && (
+                <button
+                  onClick={loadMore}
+                  style={{
+                    width: '100%', marginTop: '1rem', padding: '0.85rem',
+                    background: '#eff6ff', color: '#3b82f6',
+                    border: '1.5px dashed #93c5fd', borderRadius: '14px',
+                    fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                    display: 'block'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#60a5fa'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                >
+                  Load More Tickets ▼
+                </button>
+              )}
+            </>
           ) : (
-            <div style={{
-              textAlign: 'center',
-              padding: '4rem 2rem',
-            }}>
+            <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
               <HiOutlineTicket size={48} style={{ margin: '0 auto 1rem', display: 'block', color: B[200] }} />
               <p style={{ fontWeight: 700, fontSize: '0.9rem', color: B[400] }}>No tickets matching your search</p>
               <p style={{ fontSize: '0.8rem', marginTop: '0.25rem', color: B[300] }}>Try adjusting your search query</p>

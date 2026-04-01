@@ -16,19 +16,24 @@ const B = {
 };
 
 const AGENT_TRANSITIONS = {
-  'Assigned':    ['In Progress', 'Cancelled'],
-  'Scheduled':   ['In Progress', 'Cancelled'],
-  'In Progress': ['Completed'],
-  'Completed':   ['Closed'],
+  // Agents can ONLY act after admin has scheduled the ticket
+  'Scheduled':         ['InProgress'],
+  'InProgress':        ['Completed'],
+  'ServiceExecution':  ['Completed'],
+  // Agents cannot transition from Completed; only Admin closes.
 };
 
 const STATUS_STYLE = {
-  'Assigned':    { bg: B[100], color: B[700], label: 'Assigned' },
-  'Scheduled':   { bg: B[50],  color: B[600], label: 'Scheduled' },
-  'In Progress': { bg: '#fef3c7', color: '#92400e', label: 'In Progress' },
-  'Completed':   { bg: '#dcfce7', color: '#166534', label: 'Completed' },
-  'Closed':      { bg: '#f1f5f9', color: '#475569', label: 'Closed' },
-  'Cancelled':   { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
+  'Accepted':          { bg: B[50],  color: B[600], label: 'Assigned' },
+  'Scheduled':         { bg: B[50],  color: B[600], label: 'Scheduled' },
+  'InProgress':        { bg: '#fef3c7', color: '#92400e', label: 'In Progress' },
+  'ServiceExecution':  { bg: '#fef3c7', color: '#92400e', label: 'In Progress' },
+  'Completed':         { bg: '#dcfce7', color: '#166534', label: 'Completed' },
+  'ResolutionPending': { bg: '#dcfce7', color: '#166534', label: 'Completed' },
+  'Resolved':          { bg: '#dcfce7', color: '#166534', label: 'Completed' },
+  'Closed':            { bg: '#f1f5f9', color: '#475569', label: 'Closed' },
+  'Cancelled':         { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
+  'Rejected':          { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
 };
 
 const SHADES = [
@@ -72,7 +77,7 @@ export default function AgentTickets() {
 
   const displayed = useMemo(() =>
     filter === 'active'
-      ? myTickets.filter(t => !['Closed', 'Cancelled'].includes(t.status))
+      ? myTickets.filter(t => !['Closed', 'Cancelled', 'Completed', 'ResolutionPending', 'Resolved'].includes(t.status))
       : myTickets,
     [myTickets, filter]
   );
@@ -89,8 +94,8 @@ export default function AgentTickets() {
     </div>
   );
 
-  const done = myTickets.filter(t => ['Completed', 'Closed'].includes(t.status)).length;
-  const activeCt = myTickets.filter(t => !['Closed', 'Cancelled', 'Completed'].includes(t.status)).length;
+  const done = myTickets.filter(t => ['Completed', 'ResolutionPending', 'Resolved', 'Closed'].includes(t.status)).length;
+  const activeCt = myTickets.filter(t => !['Closed', 'Cancelled', 'Completed', 'ResolutionPending', 'Resolved'].includes(t.status)).length;
 
   return (
     <div style={{ width: '100%', maxWidth: 1100, margin: '0 auto' }}>
@@ -186,24 +191,50 @@ export default function AgentTickets() {
                         </p>
 
                         {/* Meta info */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: ticket.scheduledAt ? '0.75rem' : 0 }}>
                           {ticket.location?.address && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem' }}>
                               <HiOutlineLocationMarker size={13} style={{ color: B[400] }} />
-                              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>{ticket.location.address}</span>
-                            </div>
-                          )}
-                          {ticket.scheduledAt && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem' }}>
-                              <HiOutlineCalendar size={13} style={{ color: B[400] }} />
-                              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>{ticket.scheduledAt.toLocaleString()}</span>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>{ticket.location.address}{ticket.location?.city ? ', ' + ticket.location.city : ''}</span>
                             </div>
                           )}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem' }}>
                             <HiOutlineUser size={13} style={{ color: B[300] }} />
-                            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>Client: {ticket.userId?.slice(-6)}</span>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>Client: {ticket.name || ticket.userId?.slice(-6)}</span>
                           </div>
                         </div>
+
+                        {/* Scheduled date — prominent banner */}
+                        {ticket.scheduledAt ? (
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: '0.6rem',
+                            background: '#fffbeb', border: '1.5px solid #fde68a',
+                            borderRadius: '10px', padding: '0.55rem 0.85rem',
+                          }}>
+                            <HiOutlineCalendar size={16} style={{ color: '#d97706', flexShrink: 0 }} />
+                            <div>
+                              <p style={{ fontSize: '9px', fontWeight: 900, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '2px' }}>Appointment Scheduled</p>
+                              <p style={{ fontSize: '13px', fontWeight: 800, color: '#78350f' }}>
+                                {ticket.scheduledAt.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                                {' · '}
+                                {ticket.scheduledAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          ticket.status === 'Accepted' && (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '0.5rem',
+                              background: '#f8fafc', border: '1.5px dashed #cbd5e1',
+                              borderRadius: '10px', padding: '0.5rem 0.85rem',
+                            }}>
+                              <HiOutlineClock size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                              <p style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8' }}>
+                                Waiting for admin to schedule your appointment
+                              </p>
+                            </div>
+                          )
+                        )}
                       </div>
 
                       {/* Right: action panel */}

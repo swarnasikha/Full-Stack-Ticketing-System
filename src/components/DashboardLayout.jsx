@@ -52,11 +52,10 @@ export default function DashboardLayout() {
         <div className="h-20 flex items-center px-6 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-blue-900/20">
-              TF
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">TicketFlow</h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Admin Console</p>
+              <h1 className="text-lg font-bold text-white tracking-tight">TicketService</h1>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">SteamPRO Console</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden text-slate-400 hover:text-white">
@@ -86,26 +85,13 @@ export default function DashboardLayout() {
         </nav>
 
         {/* User Profile Area */}
-        <div className="p-4 mt-auto border-t border-slate-800">
-          <div className="bg-slate-800/40 rounded-2xl p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs font-bold border border-slate-600">
-              {user?.name?.[0]?.toUpperCase() || 'A'}
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 w-full mt-3 px-3 py-2 text-sm text-slate-400 hover:text-red-400 transition-colors"
-          >
-            <HiOutlineLogout size={18} />
-            <span>Sign out</span>
-          </button>
-        </div>
+       
       </aside>
 
       {/* ── Main Content Area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="h-20 flex-shrink-0 flex items-center px-8 gap-8 bg-white border-b border-slate-200">
+        <header className="h-14 flex-shrink-0 flex items-center px-8 gap-8 bg-white border-b border-slate-200">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-slate-500 hover:text-slate-900">
             <HiOutlineMenu size={24} />
           </button>
@@ -136,7 +122,7 @@ export default function DashboardLayout() {
 
         {/* Scrollable Main Area */}
         <main className="flex-1 overflow-y-auto bg-slate-50">
-          <div className="max-w-7xl mx-auto px-8 py-10 animate-fade-in">
+          <div className="max-w-7xl mx-auto px-8 py-4 animate-fade-in">
             <Outlet />
           </div>
         </main>
