@@ -1,86 +1,143 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
+import { createContext, useContext, useEffect, useState } from "react";
 
 const AuthContext = createContext(null);
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+
   return ctx;
 }
 
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(null);
-  const [role,    setRole]    = useState(null);
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const API_URL = "http://localhost:5000/api";
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // 1️⃣ Try direct UID lookup first (admin docs created with UID as doc ID)
-          const directDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    checkAuth();
+  }, []);
 
-          if (directDoc.exists()) {
-            const data = directDoc.data();
-            setUser({ uid: firebaseUser.uid, email: firebaseUser.email, ...data });
-            setRole(data.role || 'admin');
-          } else {
-            // 2️⃣ Fallback: query by email (for agents added via addDoc with auto-ID)
-            const q = query(
-              collection(db, 'users'),
-              where('email', '==', firebaseUser.email)
-            );
-            const snap = await getDocs(q);
+  const checkAuth = async () => {
+    try {
+      const response = await fetch(`${API_URL}/auth/me`, {
+        method: "GET",
+        credentials: "include"
+      });
 
-            if (!snap.empty) {
-              const data = snap.docs[0].data();
-              const docId = snap.docs[0].id;
-              setUser({ uid: firebaseUser.uid, firestoreId: docId, email: firebaseUser.email, ...data });
-              setRole(data.role || 'agent');
-            } else {
-              // No Firestore doc found — default to admin (e.g. first-time setup)
-              setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
-              setRole('admin');
-            }
-          }
-        } catch (err) {
-          console.error('Error fetching user role:', err);
-          setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
-          setRole(null);
-        }
+      if (response.ok) {
+        const data = await response.json();
+
+        setUser(data.user);
+        setRole(data.user.role);
       } else {
         setUser(null);
         setRole(null);
       }
+    } catch (error) {
+      console.error("Authentication check failed:", error);
+      setUser(null);
+      setRole(null);
+    } finally {
       setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+    }
+  };
 
   const login = async (email, password) => {
     setLoading(true);
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email,
+          password
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      setUser(data.user);
+      setRole(data.user.role);
+
+      return data;
+    } catch (error) {
+      throw error;
+    } finally {
       setLoading(false);
-      throw err;
+    }
+  };
+
+  const register = async (name, email, password, role = "user") => {
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Registration failed");
+      }
+
+      return data;
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
-    setLoading(true);
-    await signOut(auth);
+    try {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include"
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+
     setUser(null);
     setRole(null);
-    setLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        role,
+        loading,
+        login,
+        register,
+        logout,
+        checkAuth
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
